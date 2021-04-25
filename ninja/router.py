@@ -281,6 +281,10 @@ class Router:
             self.path_operations[path] = path_view
         else:
             path_view = self.path_operations[path]
+        
+        if not url_name:
+            url_name = view_func.__name__
+
         path_view.add_operation(
             path=path,
             methods=methods,
