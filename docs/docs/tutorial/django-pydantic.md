@@ -16,6 +16,7 @@ def create_schema(
     depth = 0, # if > 0 schema will be also created for the nested ForeignKeys and Many2Many (with the provided depth of lookup)
     fields: list[str] = None, # if passed - ONLY these fields will added to schema
     exclude: list[str] = None, # if passed - these fields will be excluded from schema
+    custom_fields: list[tuple(str, Any, Any)] = None, # if passed - this will override default field types (or add new fields)
 )
 ```
 
@@ -23,7 +24,7 @@ def create_schema(
 Take this example:
 
 ```Python hl_lines="2 4"
-form django.contrib.auth.model import User
+from django.contrib.auth.models import User
 from ninja.orm import create_schema
 
 UserSchema = create_schema(User)

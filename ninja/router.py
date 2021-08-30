@@ -14,7 +14,7 @@ from django.urls import URLPattern, path as django_path
 
 from ninja.constants import NOT_SET
 from ninja.operation import PathView
-from ninja.types import Decorator, TCallable
+from ninja.types import TCallable
 from ninja.utils import normalize_path
 
 if TYPE_CHECKING:
@@ -51,7 +51,7 @@ class Router:
         exclude_none: bool = False,
         url_name: Optional[str] = None,
         include_in_schema: bool = True,
-    ) -> Decorator:
+    ) -> Callable[[TCallable], TCallable]:
         return self.api_operation(
             ["GET"],
             path,
@@ -87,7 +87,7 @@ class Router:
         exclude_none: bool = False,
         url_name: Optional[str] = None,
         include_in_schema: bool = True,
-    ) -> Decorator:
+    ) -> Callable[[TCallable], TCallable]:
         return self.api_operation(
             ["POST"],
             path,
@@ -123,7 +123,7 @@ class Router:
         exclude_none: bool = False,
         url_name: Optional[str] = None,
         include_in_schema: bool = True,
-    ) -> Decorator:
+    ) -> Callable[[TCallable], TCallable]:
         return self.api_operation(
             ["DELETE"],
             path,
@@ -159,7 +159,7 @@ class Router:
         exclude_none: bool = False,
         url_name: Optional[str] = None,
         include_in_schema: bool = True,
-    ) -> Decorator:
+    ) -> Callable[[TCallable], TCallable]:
         return self.api_operation(
             ["PATCH"],
             path,
@@ -195,7 +195,7 @@ class Router:
         exclude_none: bool = False,
         url_name: Optional[str] = None,
         include_in_schema: bool = True,
-    ) -> Decorator:
+    ) -> Callable[[TCallable], TCallable]:
         return self.api_operation(
             ["PUT"],
             path,
@@ -232,7 +232,7 @@ class Router:
         exclude_none: bool = False,
         url_name: Optional[str] = None,
         include_in_schema: bool = True,
-    ) -> Decorator:
+    ) -> Callable[[TCallable], TCallable]:
         def decorator(view_func: TCallable) -> TCallable:
             self.add_api_operation(
                 path,
@@ -311,6 +311,7 @@ class Router:
     def set_api_instance(
         self, api: "NinjaAPI", parent_router: Optional["Router"] = None
     ) -> None:
+        # TODO: check - parent_router seems not used
         self.api = api
         for path_view in self.path_operations.values():
             path_view.set_api_instance(self.api, self)
@@ -337,13 +338,21 @@ class Router:
         auth: Any = NOT_SET,
         tags: Optional[List[str]] = None,
     ) -> None:
-        if auth != NOT_SET:
-            router.auth = auth
-        if tags is not None:
-            router.tags = tags
-        self._routers.append((prefix, router))
+        if self.api:
+            # we are already attached to an api
+            self.api.add_router(
+                prefix=prefix, router=router, auth=auth, tags=tags, parent_router=self
+            )
+        else:
+            # we are not attached to an api
+            if auth != NOT_SET:
+                router.auth = auth
+            if tags is not None:
+                router.tags = tags
+            self._routers.append((prefix, router))
 
     def build_routers(self, prefix: str) -> List[Tuple[str, "Router"]]:
+        assert self.api is None
         internal_routes = []
         for inter_prefix, inter_router in self._routers:
             _route = normalize_path("/".join((prefix, inter_prefix))).lstrip("/")

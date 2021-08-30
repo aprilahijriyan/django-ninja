@@ -22,7 +22,9 @@ from ninja.openapi.schema import OpenAPISchema
 from ninja.openapi.urls import get_openapi_urls, get_root_url
 from ninja.parser import Parser
 from ninja.renderers import BaseRenderer, JSONRenderer
-from ninja.router import Decorator, Router
+from ninja.router import Router
+from ninja.types import TCallable
+from ninja.utils import normalize_path
 
 if TYPE_CHECKING:
     from .operation import Operation  # pragma: no cover
@@ -88,7 +90,7 @@ class NinjaAPI:
         exclude_none: bool = False,
         url_name: Optional[str] = None,
         include_in_schema: bool = True,
-    ) -> Decorator:
+    ) -> Callable[[TCallable], TCallable]:
         return self.default_router.get(
             path,
             auth=auth is NOT_SET and self.auth or auth,
@@ -123,7 +125,7 @@ class NinjaAPI:
         exclude_none: bool = False,
         url_name: Optional[str] = None,
         include_in_schema: bool = True,
-    ) -> Decorator:
+    ) -> Callable[[TCallable], TCallable]:
         return self.default_router.post(
             path,
             auth=auth is NOT_SET and self.auth or auth,
@@ -158,7 +160,7 @@ class NinjaAPI:
         exclude_none: bool = False,
         url_name: Optional[str] = None,
         include_in_schema: bool = True,
-    ) -> Decorator:
+    ) -> Callable[[TCallable], TCallable]:
         return self.default_router.delete(
             path,
             auth=auth is NOT_SET and self.auth or auth,
@@ -193,7 +195,7 @@ class NinjaAPI:
         exclude_none: bool = False,
         url_name: Optional[str] = None,
         include_in_schema: bool = True,
-    ) -> Decorator:
+    ) -> Callable[[TCallable], TCallable]:
         return self.default_router.patch(
             path,
             auth=auth is NOT_SET and self.auth or auth,
@@ -228,7 +230,7 @@ class NinjaAPI:
         exclude_none: bool = False,
         url_name: Optional[str] = None,
         include_in_schema: bool = True,
-    ) -> Decorator:
+    ) -> Callable[[TCallable], TCallable]:
         return self.default_router.put(
             path,
             auth=auth is NOT_SET and self.auth or auth,
@@ -264,7 +266,7 @@ class NinjaAPI:
         exclude_none: bool = False,
         url_name: Optional[str] = None,
         include_in_schema: bool = True,
-    ) -> Decorator:
+    ) -> Callable[[TCallable], TCallable]:
         return self.default_router.api_operation(
             methods,
             path,
@@ -290,11 +292,20 @@ class NinjaAPI:
         *,
         auth: Any = NOT_SET,
         tags: Optional[List[str]] = None,
+        parent_router: Router = None,
     ) -> None:
         if auth != NOT_SET:
             router.auth = auth
         if tags is not None:
             router.tags = tags
+
+        if parent_router:
+            parent_prefix = next(
+                (path for path, r in self._routers if r is parent_router), None
+            )
+            assert parent_prefix is not None
+            prefix = normalize_path("/".join((parent_prefix, prefix))).lstrip("/")
+
         self._routers.extend(router.build_routers(prefix))
         router.set_api_instance(self)
 

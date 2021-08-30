@@ -1,3 +1,4 @@
+import logging
 import traceback
 from functools import partial
 from typing import TYPE_CHECKING, List
@@ -13,11 +14,20 @@ if TYPE_CHECKING:
 __all__ = ["ConfigError", "ValidationError", "HttpError", "set_default_exc_handlers"]
 
 
+logger = logging.getLogger("django")
+
+
 class ConfigError(Exception):
     pass
 
 
 class ValidationError(Exception):
+    """
+    This exception raised when operation params do not validate
+    Note: this is not the same as pydantic.ValidationError
+    the errors attribute as well holds the location of the error(body, form, query, etc.)
+    """
+
     def __init__(self, errors: List[DictStrAny]) -> None:
         super().__init__()
         self.errors = errors
@@ -30,16 +40,29 @@ class HttpError(Exception):
 
 
 def set_default_exc_handlers(api: "NinjaAPI") -> None:
-    api.add_exception_handler(Exception, partial(_default_exception, api=api))
-    api.add_exception_handler(Http404, partial(_default_404, api=api))
-    api.add_exception_handler(HttpError, partial(_default_http_error, api=api))
     api.add_exception_handler(
-        ValidationError, partial(_default_validation_error, api=api)
+        Exception,
+        partial(_default_exception, api=api),
+    )
+    api.add_exception_handler(
+        Http404,
+        partial(_default_404, api=api),
+    )
+    api.add_exception_handler(
+        HttpError,
+        partial(_default_http_error, api=api),
+    )
+    api.add_exception_handler(
+        ValidationError,
+        partial(_default_validation_error, api=api),
     )
 
 
 def _default_404(request: HttpRequest, exc: Exception, api: "NinjaAPI") -> HttpResponse:
-    return api.create_response(request, {"detail": "Not Found"}, status=404)
+    msg = "Not Found"
+    if settings.DEBUG:
+        msg += f": {exc}"
+    return api.create_response(request, {"detail": msg}, status=404)
 
 
 def _default_http_error(
@@ -60,5 +83,6 @@ def _default_exception(
     if not settings.DEBUG:
         raise exc  # let django deal with it
 
+    logger.exception(exc)
     tb = traceback.format_exc()
     return HttpResponse(tb, status=500, content_type="text/plain")
